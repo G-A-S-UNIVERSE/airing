@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.eggs/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+dist/
+build/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env.local
+
+# Environment variables (CRITICAL - never commit)
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+airing.db
+selflearn.db
+
+# Runtime
+*.pid
+*.sock
+run/
+instance/
+
+# Secrets / Vault
+*.pem
+*.key
+*.crt
+secrets/
+
+# Curator artifacts
+tools/curator/manifest.json
+mirror_report.json
+mirror_signed.json
+swarm_audit.log

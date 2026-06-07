@@ -1,0 +1,98 @@
+# AiRing - Local Development Stack
+# All sensitive values come from .env (copy .env.example first).
+# `docker compose up` brings up the full stack.
+
+services:
+  airing-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    image: airing/api:local
+    container_name: airing-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://airing:airing@airing-db:5432/airing}
+      - REDIS_URL=${REDIS_URL:-redis://airing-redis:6379/0}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - PATIH_CLI_API=${PATIH_CLI_API}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      airing-db:
+        condition: service_healthy
+      airing-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - airing-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  airing-db:
+    image: postgres:15-alpine
+    container_name: airing-db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-airing}
+      - POSTGRES_USER=${POSTGRES_USER:-airing}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # bind to loopback only
+    restart: unless-stopped
+    networks:
+      - airing-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-airing}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airing-redis:
+    image: redis:7-alpine
+    container_name: airing-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redisdata:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+    networks:
+      - airing-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: reverse proxy with Caddy (auto-TLS via Cloudflare DNS or local)
+  airing-caddy:
+    profiles: ["with-proxy"]   # opt-in: `docker compose --profile with-proxy up`
+    image: caddy:2-alpine
+    container_name: airing-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - airing-api
+    networks:
+      - airing-net
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  airing-net:
+    driver: bridge

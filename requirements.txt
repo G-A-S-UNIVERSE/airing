@@ -1,0 +1,40 @@
+# AiRing - Hybrid CMS-OLT Management System
+# Public portfolio release: sanitized, env-driven, no hardcoded credentials
+# Tested on Python 3.11+
+
+# Web framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Database (SQLAlchemy + asyncpg for production Postgres)
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+aiosqlite==0.19.0
+
+# Cache
+redis==5.0.1
+
+# Network protocols
+paho-mqtt==1.6.1
+pysnmp==4.4.12
+
+# HTTP clients
+httpx==0.26.0
+
+# Utilities
+python-dotenv==1.0.0
+orjson==3.9.12
+loguru==0.7.2
+
+# Auth (optional - for protected endpoints)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Dev / Test
+pytest==7.4.4
+pytest-asyncio==0.23.3
+black==24.1.1
+ruff==0.1.13

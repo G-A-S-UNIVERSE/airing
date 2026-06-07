@@ -1,0 +1,25 @@
+# AiRing - Caddy reverse proxy (optional, opt-in via --profile with-proxy)
+# Replace `airing.example.com` with your domain.
+
+# airing.example.com {
+#     reverse_proxy airing-api:8000 {
+#         header_up X-Real-IP {remote_host}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up X-Forwarded-Proto {scheme}
+#     }
+#     encode zstd gzip
+#     log {
+#         output stdout
+#         format console
+#     }
+# }
+
+# Local development (uncomment to test without a domain)
+:80 {
+    reverse_proxy airing-api:8000
+    encode zstd gzip
+    log {
+        output stdout
+        format console
+    }
+}
