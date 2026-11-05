@@ -20,6 +20,11 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.adapters.base import BaseOLTAdapter, OLTDevice, ONUDevice
+from src.adapters.zte_parsers import (
+    parse_onu_states,
+    parse_onu_rx_power,
+    extract_detail_info,
+)
 
 logger = logging.getLogger(__name__)
 
