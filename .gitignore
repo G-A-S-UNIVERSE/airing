@@ -72,3 +72,30 @@ tools/curator/manifest.json
 mirror_report.json
 mirror_signed.json
 swarm_audit.log
+
+# --- Real credentials (never commit) ---
+/.env
+/.env.local
+/.env.production
+/credentials.json
+# But examples/ and tests/fixtures/ contain FICTIONAL data — those are committed.
+!examples/*.json
+!tests/fixtures/*.json
+
+# --- Local databases and caches ---
+*.db
+*.sqlite3
+airing.db
+
+# --- Python / venv ---
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Backup files from patch scripts — never commit
+*.bak
+*.bak[A-Za-z0-9]*
+*.preclean

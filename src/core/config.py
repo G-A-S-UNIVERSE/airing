@@ -13,7 +13,7 @@ import os
 from functools import lru_cache
 from typing import List
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -68,11 +68,43 @@ class Settings(BaseSettings):
     SNMP_RETRIES: int = Field(default=3)
     SNMP_POLL_INTERVAL: int = Field(default=60)
 
+    # --- OLT Telnet credentials (used by ZTE and C-Data adapters) ---
+    TELNET_USERNAME: str = Field(default="admin")
+    TELNET_PASSWORD: str = Field(default="changeme")
+
+    # --- ZTE OLT defaults ---
+    ZTE_DEFAULT_HOST: str = Field(default="localhost")
+    ZTE_DEFAULT_PORT: int = Field(default=23)
+    ZTE_PROMPT_MARKER: str = Field(default="ZXAN")
+
     LOG_LEVEL: str = Field(default="INFO")
     CORS_ORIGINS: str = Field(
         default="http://localhost:3000,http://localhost:8000",
         description="Comma-separated list of allowed CORS origins",
     )
+
+    @model_validator(mode="after")
+    def _reject_placeholder_secrets_in_prod(self) -> "Settings":
+        """Fail loudly if running in production with placeholder secrets."""
+        if not self.is_production:
+            return self
+        if self.SECRET_KEY.startswith("change-me"):
+            raise ValueError(
+                "SECRET_KEY must be set to a real value when APP_ENV=production"
+            )
+        if self.TELNET_PASSWORD == "changeme":
+            raise ValueError(
+                "TELNET_PASSWORD must be set when APP_ENV=production"
+            )
+        if self.CMS_API_TOKEN == "changeme":
+            raise ValueError(
+                "CMS_API_TOKEN must be set when APP_ENV=production"
+            )
+        if self.SMARTOLT_API_KEY == "changeme":
+            raise ValueError(
+                "SMARTOLT_API_KEY must be set when APP_ENV=production"
+            )
+        return self
 
     @property
     def parsed_cors_origins(self) -> List[str]:

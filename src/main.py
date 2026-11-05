@@ -23,6 +23,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
@@ -121,7 +122,7 @@ METRICS_STATE = {
 }
 
 
-@app.get("/metrics")
+@app.get("/metrics", response_class=PlainTextResponse)
 async def metrics() -> str:
     """Minimal text-format metrics. Replace with prometheus-client in production."""
     uptime = time.time() - METRICS_STATE["started_at"]

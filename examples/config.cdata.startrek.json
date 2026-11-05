@@ -1,0 +1,16 @@
+{
+  "_note": "EXAMPLE ONLY — fictional credentials for C-Data EPON OLTs, Star Trek themed. Safe to commit. For real deployments, use .env with real values and never commit it.",
+  "cdata_olts": {
+    "vulcan":   { "name": "VULCAN CDATA OLT",   "ip": "10.43.0.21" },
+    "andoria":  { "name": "ANDORIA CDATA OLT",  "ip": "10.43.0.22" },
+    "bajor":    { "name": "BAJOR CDATA OLT",    "ip": "10.43.0.23" },
+    "risa":     { "name": "RISA CDATA OLT",     "ip": "10.43.0.24" },
+    "qonos":    { "name": "QONOS CDATA OLT",    "ip": "10.43.0.25" }
+  },
+  "cdata_credentials": {
+    "username": "picard",
+    "password": "make_it_so_1701"
+  },
+  "cdata_save_file": "cdata_onu_status.json",
+  "cdata_mac_file": "cdata_mac_address_list.txt"
+}
