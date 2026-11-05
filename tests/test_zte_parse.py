@@ -211,14 +211,12 @@ Online Duration: 1d
 async def test_list_onus_populates_serial_to_cli(monkeypatch):
     """list_onus(offline=False) runs state + per-ONU detail and caches serial→cli.
 
-    Fixture shape is copied from real ZTE C320 output captured at 192.168.34.12
-    on 2026-11-05. The real output has OffLine with capital L, working in
-    lowercase, and mixed column widths.
+    Fixture data is synthetic. The command grammar and output shape match
+    real ZTE C320 hardware (validated against live OLTs), but serials and
+    subscriber names here are fictional.
     """
     from src.adapters import zte_c320
 
-    # Exact fixture from real hardware — note "OffLine" (capital L) and
-    # the trailing spaces in some lines.
     state_output = (
         "OnuIndex   Admin State  OMCC State  Phase State  Channel    \n"
         "--------------------------------------------------------------\n"
@@ -228,33 +226,33 @@ async def test_list_onus_populates_serial_to_cli(monkeypatch):
         "1/1/1:4     enable       enable      working      1(GPON)\n"
         "1/1/1:5     enable       disable     OffLine      1(GPON)\n"
         "1/1/1:6     enable       enable      working      1(GPON)\n"
+        "1/1/1:12    enable       enable      working      1(GPON)\n"
         "ONU Number: 3/12       \n"
         "ZXAN#\n"
     )
 
-    # Real per-ONU detail fixtures (matching gpon-onu_ form)
     detail_by_onu = {
         "1/1/1:4": (
             "\nONU interface:         gpon-onu_1/1/1:4\n"
-            "  Name:                aliyu ibrahim2\n"
+            "  Name:                tatooine_user_1\n"
             "  Phase state:         working\n"
-            "  Serial number:       ZTEGC99AC9D7\n"
+            "  Serial number:       ZTEGAAAA0004\n"
             "  Online Duration:     1h 45m 53s\n"
             "ZXAN#\n"
         ),
         "1/1/1:6": (
             "\nONU interface:         gpon-onu_1/1/1:6\n"
-            "  Name:                obumneme_eziamaka\n"
+            "  Name:                coruscant_user_2\n"
             "  Phase state:         working\n"
-            "  Serial number:       ZTEGC89E8765\n"
+            "  Serial number:       ZTEGAAAA0006\n"
             "  Online Duration:     2h 15m 30s\n"
             "ZXAN#\n"
         ),
         "1/1/1:12": (
             "\nONU interface:         gpon-onu_1/1/1:12\n"
-            "  Name:                uzochukwu_augustine\n"
+            "  Name:                mandalore_user_3\n"
             "  Phase state:         working\n"
-            "  Serial number:       ZXICC8C862DB\n"
+            "  Serial number:       ZTEGAAAA0012\n"
             "  Online Duration:     45m 12s\n"
             "ZXAN#\n"
         ),
@@ -287,10 +285,10 @@ async def test_list_onus_populates_serial_to_cli(monkeypatch):
     onus = await adapter.list_onus("olt-1", pon_port="gpon-olt_1/1/1")
     assert len(onus) == 3, f"expected 3, got {len(onus)}"
     serials = {o.serial_number for o in onus}
-    assert "ZTEGC99AC9D7" in serials
+    assert "ZTEGAAAA0004" in serials
 
-    assert adapter._serial_to_cli["ZTEGC99AC9D7"] == "1/1/1:4"
-    assert adapter._serial_to_cli["ZTEGC89E8765"] == "1/1/1:6"
+    assert adapter._serial_to_cli["ZTEGAAAA0004"] == "1/1/1:4"
+    assert adapter._serial_to_cli["ZTEGAAAA0006"] == "1/1/1:6"
 
     detail_cmds = [c for c in commands_seen if "detail-info" in c]
     assert len(detail_cmds) == 3
