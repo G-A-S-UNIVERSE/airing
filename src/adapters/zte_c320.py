@@ -25,6 +25,7 @@ from src.adapters.zte_parsers import (
     parse_onu_states,
     parse_onu_rx_power,
     extract_detail_info,
+    parse_bulk_detail_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ class ZteC320Adapter(BaseOLTAdapter):
         self.port = port
         self.prompt_marker = prompt_marker
         self.offline = offline
+        # serial_number -> CLI identifier (e.g. '1/1/1:1'), populated by list_onus()
+        self._serial_to_cli: dict[str, str] = {}
         # Credentials resolve at construction time from settings by default,
         # overridable per-instance for tests / multi-tenant use.
         from src.core.config import settings as _settings
@@ -108,44 +111,107 @@ class ZteC320Adapter(BaseOLTAdapter):
         return None
 
     async def list_onus(self, olt_id: str, pon_port: Optional[str] = None) -> List[ONUDevice]:
-        """Walk `ZTE-OLT-PON-MIB::onuTable` and decode entries."""
-        return [
-            ONUDevice(
-                id="zte-onu-1",
+        """List ONUs under an OLT (optionally filtered by PON port).
+
+        When `offline=True` (default), returns mock data for unit tests.
+        When `offline=False`, runs two CLI commands and parses the output:
+          1. `show gpon onu state <pon>`  — enumerate ONU CLI IDs + states
+          2. `show gpon onu detail-info <pon>`  — names, serials, uptimes
+
+        Populates `self._serial_to_cli` so subsequent `get_onu_signal`
+        calls can resolve a hardware serial to the CLI identifier.
+        """
+        if self.offline:
+            return [
+                ONUDevice(
+                    id="zte-onu-1",
+                    olt_id=olt_id,
+                    pon_port=pon_port or "0/1/1",
+                    onu_index=1,
+                    serial_number="ZTEG-0000A1B2",
+                    status="online",
+                    rx_power_dbm=-22.5,
+                    tx_power_dbm=2.1,
+                    distance_m=850,
+                ),
+                ONUDevice(
+                    id="zte-onu-2",
+                    olt_id=olt_id,
+                    pon_port=pon_port or "0/1/1",
+                    onu_index=2,
+                    serial_number="ZTEG-0000A1B3",
+                    status="offline",
+                    rx_power_dbm=None,
+                    tx_power_dbm=None,
+                    distance_m=None,
+                ),
+            ]
+
+        pon_arg = pon_port or "gpon-olt_1/1/1"
+
+        async with TelnetSession(
+            self.host, self.port, paging_char=" ", paging_markers=("--More--",),
+        ) as session:
+            await session.login(
+                self.username, self.password,
+                username_prompt_markers=("Username:", "login:"),
+                password_prompt_markers=("Password:",),
+                post_login_markers=(self.prompt_marker,),
+            )
+
+            state_out = await session.run(
+                f"show gpon onu state {pon_arg}",
+                prompt_markers=(self.prompt_marker,),
+            )
+            _grouped, working = parse_onu_states(state_out, onu_type="gpon")
+
+            detail_out = await session.run(
+                f"show gpon onu detail-info {pon_arg}",
+                prompt_markers=(self.prompt_marker,),
+            )
+            records = parse_bulk_detail_info(detail_out)
+
+        onus: List[ONUDevice] = []
+        for idx, rec in enumerate(records, start=1):
+            cli_id = f"1/1/1:{idx}"
+            serial = rec["serial"]
+            if serial != "N/A":
+                self._serial_to_cli[serial] = cli_id
+            onus.append(ONUDevice(
+                id=f"zte-{serial}",
                 olt_id=olt_id,
-                pon_port=pon_port or "0/1/1",
-                onu_index=1,
-                serial_number="ZTEG-0000A1B2",
-                status="online",
-                rx_power_dbm=-22.5,
-                tx_power_dbm=2.1,
-                distance_m=850,
-            ),
-            ONUDevice(
-                id="zte-onu-2",
-                olt_id=olt_id,
-                pon_port=pon_port or "0/1/1",
-                onu_index=2,
-                serial_number="ZTEG-0000A1B3",
-                status="offline",
+                pon_port=pon_arg,
+                onu_index=idx,
+                serial_number=serial,
+                status="online" if rec["status"] == "Online" else "offline",
                 rx_power_dbm=None,
                 tx_power_dbm=None,
                 distance_m=None,
-            ),
-        ]
+                extra={
+                    "name": rec["name"],
+                    "uptime": rec["uptime"],
+                    "downtime_cause": rec["downtime_cause"],
+                },
+            ))
+        return onus
 
     async def get_onu_signal(self, olt_id: str, serial: str) -> Optional[Dict[str, float]]:
         """Query downstream Rx power via CLI (`show pon power attenuation`).
 
-        `serial` here is the ONU CLI identifier (e.g. "1/1/1:1"), not the
-        hardware serial. A production deployment would map hardware serials
-        to CLI identifiers via a cache populated by `list_onus()`.
+        `serial` may be either a hardware serial (e.g. "ZTEG-0000A1B2") or
+        a CLI identifier (e.g. "1/1/1:1"). Hardware serials are resolved
+        via the cache populated by `list_onus()`.
 
         When `offline=True` (default), returns a mock so unit tests stay
         hermetic. When `offline=False`, performs a real Telnet query.
         """
         if self.offline:
             return {"rx_power_dbm": -22.5, "tx_power_dbm": 2.1}
+
+        # Resolve hardware serial -> CLI identifier via the cache populated
+        # by list_onus(). Falls back to treating the input as a CLI ID when
+        # it isn't in the cache (useful when the caller already knows it).
+        onu_cli_id = self._serial_to_cli.get(serial, serial)
 
         async with TelnetSession(
             self.host,
@@ -161,7 +227,7 @@ class ZteC320Adapter(BaseOLTAdapter):
                 post_login_markers=(self.prompt_marker,),
             )
             output = await session.run(
-                f"show pon power attenuation gpon-onu_{serial}",
+                f"show pon power attenuation gpon-onu_{onu_cli_id}",
                 prompt_markers=(self.prompt_marker,),
             )
 

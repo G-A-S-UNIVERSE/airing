@@ -203,3 +203,85 @@ Online Duration: 1d
     records = parse_bulk_detail_info(single)
     assert len(records) == 1
     assert records[0]["serial"] == "ZTEG-SOLO"
+
+
+# --- list_onus + serial→cli cache (C.2) ---
+
+@pytest.mark.asyncio
+async def test_list_onus_populates_serial_to_cli(monkeypatch):
+    """list_onus(offline=False) runs state+detail-info and caches serial→cli."""
+    from src.adapters import zte_c320
+
+    responses = iter([
+        SAMPLE_STATE_OUTPUT,        # for "show gpon onu state"
+        SAMPLE_DETAIL_INFO_BULK,    # for "show gpon onu detail-info"
+    ])
+
+    async def fake_connect(self): pass
+    async def fake_close(self): pass
+    async def fake_login(self, user, pw, **kw): pass
+    async def fake_run(self, command, *, prompt_markers, timeout=None):
+        return next(responses)
+
+    monkeypatch.setattr(zte_c320.TelnetSession, "connect", fake_connect)
+    monkeypatch.setattr(zte_c320.TelnetSession, "close", fake_close)
+    monkeypatch.setattr(zte_c320.TelnetSession, "login", fake_login)
+    monkeypatch.setattr(zte_c320.TelnetSession, "run", fake_run)
+
+    adapter = zte_c320.ZteC320Adapter(
+        host="10.42.0.11", username="u", password="p", offline=False,
+    )
+    onus = await adapter.list_onus("olt-1", pon_port="gpon-olt_1/1/1")
+    assert len(onus) == 3
+    serials = {o.serial_number for o in onus}
+    assert "ZTEG-0000A1B2" in serials
+
+    # cache populated
+    assert "ZTEG-0000A1B2" in adapter._serial_to_cli
+    assert adapter._serial_to_cli["ZTEG-0000A1B2"].startswith("1/1/1:")
+
+
+@pytest.mark.asyncio
+async def test_list_onus_offline_returns_mock():
+    """Default offline=True keeps the mock path hermetic."""
+    from src.adapters.zte_c320 import ZteC320Adapter
+    a = ZteC320Adapter()
+    onus = await a.list_onus("olt-1")
+    assert len(onus) == 2
+    assert onus[0].serial_number.startswith("ZTEG-")
+
+
+@pytest.mark.asyncio
+async def test_get_onu_signal_resolves_serial_to_cli(monkeypatch):
+    """After list_onus populates the cache, get_onu_signal(serial) uses CLI ID."""
+    from src.adapters import zte_c320
+
+    responses = iter([
+        SAMPLE_STATE_OUTPUT,
+        SAMPLE_DETAIL_INFO_BULK,
+        SAMPLE_ATTENUATION_OUTPUT,
+    ])
+    commands_seen = []
+
+    async def fake_connect(self): pass
+    async def fake_close(self): pass
+    async def fake_login(self, user, pw, **kw): pass
+    async def fake_run(self, command, *, prompt_markers, timeout=None):
+        commands_seen.append(command)
+        return next(responses)
+
+    monkeypatch.setattr(zte_c320.TelnetSession, "connect", fake_connect)
+    monkeypatch.setattr(zte_c320.TelnetSession, "close", fake_close)
+    monkeypatch.setattr(zte_c320.TelnetSession, "login", fake_login)
+    monkeypatch.setattr(zte_c320.TelnetSession, "run", fake_run)
+
+    adapter = zte_c320.ZteC320Adapter(
+        host="10.42.0.11", username="u", password="p", offline=False,
+    )
+    await adapter.list_onus("olt-1", pon_port="gpon-olt_1/1/1")
+    sig = await adapter.get_onu_signal("olt-1", "ZTEG-0000A1B2")
+    assert sig is not None
+    assert sig["rx_power_dbm"] == pytest.approx(-22.53, abs=0.01)
+    power_cmd = commands_seen[-1]
+    assert "gpon-onu_1/1/1:" in power_cmd, power_cmd
+    assert "ZTEG-" not in power_cmd, power_cmd
