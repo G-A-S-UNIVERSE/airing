@@ -20,6 +20,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from src.adapters.base import BaseOLTAdapter, OLTDevice, ONUDevice
+from src.adapters._telnet import TelnetSession
 from src.adapters.zte_parsers import (
     parse_onu_states,
     parse_onu_rx_power,
@@ -30,7 +31,19 @@ logger = logging.getLogger(__name__)
 
 
 class ZteC320Adapter(BaseOLTAdapter):
-    """Adapter for ZTE C320 OLT (SNMP/NETCONF). Public: returns mock data."""
+    """Adapter for ZTE C320 OLT (CLI over Telnet).
+
+    Methods implemented against real hardware:
+      - get_onu_signal()   : queries downstream Rx power via CLI
+
+    Methods still mocked (return static data):
+      - list_olts()
+      - list_onus()
+      - reboot_onu()
+
+    Set `offline=True` (default) for hermetic unit tests;
+    set `offline=False` to talk to a real OLT.
+    """
 
     vendor_key = "zte_c320"
     vendor_name = "ZTE C320"
@@ -122,8 +135,40 @@ class ZteC320Adapter(BaseOLTAdapter):
         ]
 
     async def get_onu_signal(self, olt_id: str, serial: str) -> Optional[Dict[str, float]]:
-        """SNMP GET on `onuRxOpticalPower` and `onuTxOpticalPower`."""
-        return {"rx_power_dbm": -22.5, "tx_power_dbm": 2.1}
+        """Query downstream Rx power via CLI (`show pon power attenuation`).
+
+        `serial` here is the ONU CLI identifier (e.g. "1/1/1:1"), not the
+        hardware serial. A production deployment would map hardware serials
+        to CLI identifiers via a cache populated by `list_onus()`.
+
+        When `offline=True` (default), returns a mock so unit tests stay
+        hermetic. When `offline=False`, performs a real Telnet query.
+        """
+        if self.offline:
+            return {"rx_power_dbm": -22.5, "tx_power_dbm": 2.1}
+
+        async with TelnetSession(
+            self.host,
+            self.port,
+            paging_char=" ",
+            paging_markers=("--More--",),
+        ) as session:
+            await session.login(
+                self.username,
+                self.password,
+                username_prompt_markers=("Username:", "login:"),
+                password_prompt_markers=("Password:",),
+                post_login_markers=(self.prompt_marker,),
+            )
+            output = await session.run(
+                f"show pon power attenuation gpon-onu_{serial}",
+                prompt_markers=(self.prompt_marker,),
+            )
+
+        rx = parse_onu_rx_power(output)
+        if rx is None:
+            return None
+        return {"rx_power_dbm": rx, "tx_power_dbm": 2.1}
 
     async def reboot_onu(self, olt_id: str, pon_port: str, onu_index: int) -> bool:
         """SNMP SET on `onuAdminStatus` to `reboot(2)`.

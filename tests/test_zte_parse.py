@@ -98,3 +98,51 @@ def test_extract_detail_info_offline_captures_cause():
     assert info["status"].lower() != "online"
     # cause must be extracted from history table
     assert "dying-gasp" in info["downtime_cause"].lower() or info["downtime_cause"] == "N/A"
+
+
+# --- Integration: adapter.get_onu_signal() uses Telnet when offline=False ---
+
+@pytest.mark.asyncio
+async def test_get_onu_signal_uses_telnet_when_offline_false(monkeypatch):
+    """Adapter must call TelnetSession and parse the Rx power."""
+    from src.adapters import zte_c320
+
+    async def fake_connect(self):
+        pass
+
+    async def fake_close(self):
+        pass
+
+    async def fake_login(self, user, pw, **kw):
+        # Adapter passes username_prompt_markers etc. as kwargs — accept them.
+        pass
+
+    async def fake_run(self, command, *, prompt_markers, timeout=None):
+        assert "show pon power attenuation" in command
+        assert "gpon-onu_1/1/1:1" in command, command
+        return SAMPLE_ATTENUATION_OUTPUT
+
+    monkeypatch.setattr(zte_c320.TelnetSession, "connect", fake_connect)
+    monkeypatch.setattr(zte_c320.TelnetSession, "close", fake_close)
+    monkeypatch.setattr(zte_c320.TelnetSession, "login", fake_login)
+    monkeypatch.setattr(zte_c320.TelnetSession, "run", fake_run)
+
+    adapter = zte_c320.ZteC320Adapter(
+        host="10.42.0.11",
+        username="force_ghost",
+        password="may_the_force_be_with_you",
+        offline=False,
+    )
+    signal = await adapter.get_onu_signal("olt-1", "1/1/1:1")
+    assert signal is not None
+    assert signal["rx_power_dbm"] == pytest.approx(-22.53, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_get_onu_signal_still_uses_mock_when_offline_true():
+    """Default offline=True must keep the mock path for hermetic tests."""
+    from src.adapters.zte_c320 import ZteC320Adapter
+
+    adapter = ZteC320Adapter()  # offline defaults to True
+    signal = await adapter.get_onu_signal("olt-1", "1/1/1:1")
+    assert signal == {"rx_power_dbm": -22.5, "tx_power_dbm": 2.1}
