@@ -12,6 +12,10 @@ def test_settings_load_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SECRET_KEY", "abc-123-test")
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    # Production now requires all secrets be set (see _reject_placeholder_secrets_in_prod)
+    monkeypatch.setenv("TELNET_PASSWORD", "real-telnet-password")
+    monkeypatch.setenv("CMS_API_TOKEN", "real-cms-token")
+    monkeypatch.setenv("SMARTOLT_API_KEY", "real-smartolt-key")
     from src.core.config import Settings
     s = Settings()
     assert s.SECRET_KEY == "abc-123-test"
@@ -42,6 +46,11 @@ def test_cors_origins_parsed_from_csv(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_app_env_property(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SECRET_KEY", "real-secret-value")
+    # Production now requires all secrets be set
+    monkeypatch.setenv("TELNET_PASSWORD", "real-telnet-password")
+    monkeypatch.setenv("CMS_API_TOKEN", "real-cms-token")
+    monkeypatch.setenv("SMARTOLT_API_KEY", "real-smartolt-key")
     from src.core.config import Settings
     s = Settings()
     assert s.is_production is True
