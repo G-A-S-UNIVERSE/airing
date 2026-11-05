@@ -16,6 +16,8 @@ Key ZTE C320 MIB references (production):
 
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -114,9 +116,10 @@ class ZteC320Adapter(BaseOLTAdapter):
         """List ONUs under an OLT (optionally filtered by PON port).
 
         When `offline=True` (default), returns mock data for unit tests.
-        When `offline=False`, runs two CLI commands and parses the output:
-          1. `show gpon onu state <pon>`  — enumerate ONU CLI IDs + states
-          2. `show gpon onu detail-info <pon>`  — names, serials, uptimes
+        When `offline=False`, uses the real ZTE C320 CLI:
+
+          1. `show gpon onu state gpon-olt_<port>` — enumerate ONU indices
+          2. `show gpon onu detail-info gpon-onu_<port>:<N>` — per-ONU detail
 
         Populates `self._serial_to_cli` so subsequent `get_onu_signal`
         calls can resolve a hardware serial to the CLI identifier.
@@ -147,7 +150,14 @@ class ZteC320Adapter(BaseOLTAdapter):
                 ),
             ]
 
-        pon_arg = pon_port or "gpon-olt_1/1/1"
+        # Accept both "gpon-olt_1/1/1" and "1/1/1" as input; normalize to board/port.
+        raw = pon_port or "gpon-olt_1/1/1"
+        # Extract the "1/1/1" portion
+        import re as _re
+        m = _re.search(r"(\d+/\d+/\d+)", raw)
+        board_port = m.group(1) if m else "1/1/1"
+
+        state_arg = f"gpon-olt_{board_port}"
 
         async with TelnetSession(
             self.host, self.port, paging_char=" ", paging_markers=("--More--",),
@@ -160,41 +170,47 @@ class ZteC320Adapter(BaseOLTAdapter):
             )
 
             state_out = await session.run(
-                f"show gpon onu state {pon_arg}",
+                f"show gpon onu state {state_arg}",
                 prompt_markers=(self.prompt_marker,),
             )
             _grouped, working = parse_onu_states(state_out, onu_type="gpon")
 
-            detail_out = await session.run(
-                f"show gpon onu detail-info {pon_arg}",
-                prompt_markers=(self.prompt_marker,),
-            )
-            records = parse_bulk_detail_info(detail_out)
+            # Per-ONU detail query. Each response parses to one record.
+            onus: List[ONUDevice] = []
+            for idx, onu_idx in enumerate(working, start=1):
+                onu_iface = f"gpon-onu_{board_port}:{onu_idx}"
+                try:
+                    detail_out = await session.run(
+                        f"show gpon onu detail-info {onu_iface}",
+                        prompt_markers=(self.prompt_marker,),
+                    )
+                except (asyncio.TimeoutError, ConnectionError):
+                    # Network-level failure for this ONU — skip it, keep the rest.
+                    # Do NOT use bare `except Exception` here: it would hide
+                    # code bugs (NameError, AttributeError, etc.) as "no ONUs".
+                    continue
 
-        onus: List[ONUDevice] = []
-        for idx, rec in enumerate(records, start=1):
-            cli_id = f"1/1/1:{idx}"
-            serial = rec["serial"]
-            if serial != "N/A":
-                self._serial_to_cli[serial] = cli_id
-            onus.append(ONUDevice(
-                id=f"zte-{serial}",
-                olt_id=olt_id,
-                pon_port=pon_arg,
-                onu_index=idx,
-                serial_number=serial,
-                status="online" if rec["status"] == "Online" else "offline",
-                rx_power_dbm=None,
-                tx_power_dbm=None,
-                distance_m=None,
-                extra={
-                    "name": rec["name"],
-                    "uptime": rec["uptime"],
-                    "downtime_cause": rec["downtime_cause"],
-                },
-            ))
+                info = extract_detail_info(detail_out)
+                serial = info["serial"]
+                if serial != "N/A":
+                    self._serial_to_cli[serial] = f"{board_port}:{onu_idx}"
+                onus.append(ONUDevice(
+                    id=f"zte-{serial}",
+                    olt_id=olt_id,
+                    pon_port=state_arg,
+                    onu_index=int(onu_idx) if onu_idx.isdigit() else idx,
+                    serial_number=serial,
+                    status="online" if info["status"] == "Online" else "offline",
+                    rx_power_dbm=None,
+                    tx_power_dbm=None,
+                    distance_m=None,
+                    extra={
+                        "name": info["name"],
+                        "uptime": info["uptime"],
+                        "downtime_cause": info["downtime_cause"],
+                    },
+                ))
         return onus
-
     async def get_onu_signal(self, olt_id: str, serial: str) -> Optional[Dict[str, float]]:
         """Query downstream Rx power via CLI (`show pon power attenuation`).
 
