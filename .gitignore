@@ -94,3 +94,8 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+
+# Backup files from patch scripts — never commit
+*.bak
+*.bak[A-Za-z0-9]*
+*.preclean
