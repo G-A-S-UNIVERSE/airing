@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     SNMP_RETRIES: int = Field(default=3)
     SNMP_POLL_INTERVAL: int = Field(default=60)
 
+    # --- OLT Telnet credentials (used by ZTE and C-Data adapters) ---
+    TELNET_USERNAME: str = Field(default="admin")
+    TELNET_PASSWORD: str = Field(default="changeme")
+
+    # --- ZTE OLT defaults ---
+    ZTE_DEFAULT_HOST: str = Field(default="localhost")
+    ZTE_DEFAULT_PORT: int = Field(default=23)
+    ZTE_PROMPT_MARKER: str = Field(default="ZXAN")
+
     LOG_LEVEL: str = Field(default="INFO")
     CORS_ORIGINS: str = Field(
         default="http://localhost:3000,http://localhost:8000",

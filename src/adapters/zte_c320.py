@@ -41,12 +41,33 @@ class ZteC320Adapter(BaseOLTAdapter):
         community: str = "public",
         snmp_version: str = "2c",
         timeout: int = 5,
+        *,
+        username: str | None = None,
+        password: str | None = None,
+        port: int = 23,
+        prompt_marker: str = "ZXAN",
+        offline: bool = True,
     ) -> None:
-        super().__init__(host=host, community=community, snmp_version=snmp_version, timeout=timeout)
+        super().__init__(
+            host=host,
+            community=community,
+            snmp_version=snmp_version,
+            timeout=timeout,
+            port=port,
+            offline=offline,
+        )
         self.host = host
         self.community = community
         self.snmp_version = snmp_version
         self.timeout = timeout
+        self.port = port
+        self.prompt_marker = prompt_marker
+        self.offline = offline
+        # Credentials resolve at construction time from settings by default,
+        # overridable per-instance for tests / multi-tenant use.
+        from src.core.config import settings as _settings
+        self.username = username if username is not None else _settings.TELNET_USERNAME
+        self.password = password if password is not None else _settings.TELNET_PASSWORD
 
     async def list_olts(self) -> List[OLTDevice]:
         """Return ZTE C320 OLTs reachable via SNMP. Public: returns mock data."""
