@@ -146,3 +146,60 @@ async def test_get_onu_signal_still_uses_mock_when_offline_true():
     adapter = ZteC320Adapter()  # offline defaults to True
     signal = await adapter.get_onu_signal("olt-1", "1/1/1:1")
     assert signal == {"rx_power_dbm": -22.5, "tx_power_dbm": 2.1}
+
+
+# --- parse_bulk_detail_info (C.1) ---
+
+SAMPLE_DETAIL_INFO_BULK = """\
+OLT: 1/1/1
+ONU ID: 1
+Phase state: Working
+Name: john_doe
+Serial number: ZTEG-0000A1B2
+Online Duration: 5d 4h 23m 12s
+
+OLT: 1/1/1
+ONU ID: 2
+Phase state: Working
+Name: jane_doe
+Serial number: ZTEG-0000A1B3
+Online Duration: 2d 11h 5m 44s
+
+OLT: 1/1/1
+ONU ID: 3
+Phase state: Offline
+Name: offline_user
+Serial number: ZTEG-0000A1B4
+Online Duration: N/A
+"""
+
+
+def test_parse_bulk_detail_info_splits_records():
+    from src.adapters.zte_parsers import parse_bulk_detail_info
+    records = parse_bulk_detail_info(SAMPLE_DETAIL_INFO_BULK)
+    assert len(records) == 3
+    by_serial = {r["serial"]: r for r in records}
+    assert "ZTEG-0000A1B2" in by_serial
+    assert by_serial["ZTEG-0000A1B2"]["name"] == "john_doe"
+    assert by_serial["ZTEG-0000A1B2"]["status"] == "Online"
+    assert by_serial["ZTEG-0000A1B4"]["status"].lower() != "online"
+
+
+def test_parse_bulk_detail_info_handles_empty():
+    from src.adapters.zte_parsers import parse_bulk_detail_info
+    assert parse_bulk_detail_info("") == []
+
+
+def test_parse_bulk_detail_info_single_record():
+    from src.adapters.zte_parsers import parse_bulk_detail_info
+    single = """\
+OLT: 1/1/1
+ONU ID: 1
+Phase state: Working
+Name: solo
+Serial number: ZTEG-SOLO
+Online Duration: 1d
+"""
+    records = parse_bulk_detail_info(single)
+    assert len(records) == 1
+    assert records[0]["serial"] == "ZTEG-SOLO"

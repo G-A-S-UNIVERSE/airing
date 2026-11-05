@@ -98,3 +98,18 @@ def extract_detail_info(detail_output: str) -> dict:
                     break
 
     return info
+
+
+def parse_bulk_detail_info(raw_output: str) -> list[dict]:
+    """Split concatenated `show gpon onu detail-info` output into records.
+
+    ZTE emits one record per ONU, separated by blank lines. Each record
+    starts with "OLT:" or "ONU ID:". This splits on blank lines followed
+    by a record start, parses each block via `extract_detail_info`, and
+    returns a list. Empty input returns an empty list.
+    """
+    if not raw_output.strip():
+        return []
+
+    blocks = re.split(r"\n\s*\n(?=OLT:|ONU ID:)", raw_output.strip())
+    return [extract_detail_info(b) for b in blocks if b.strip()]
