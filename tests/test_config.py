@@ -46,3 +46,41 @@ def test_app_env_property(monkeypatch: pytest.MonkeyPatch) -> None:
     s = Settings()
     assert s.is_production is True
     assert s.is_development is False
+
+
+# --- Production fail-loud checks (Step A) ---
+
+def test_production_rejects_placeholder_secret(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SECRET_KEY", "change-me-to-random-32-bytes")
+    from src.core.config import Settings
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        Settings()
+
+
+def test_production_rejects_placeholder_telnet_password(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SECRET_KEY", "real-secret-32-bytes-of-entropy-here")
+    monkeypatch.setenv("TELNET_PASSWORD", "changeme")
+    from src.core.config import Settings
+    with pytest.raises(ValueError, match="TELNET_PASSWORD"):
+        Settings()
+
+
+def test_production_accepts_real_secrets(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SECRET_KEY", "a" * 43)
+    monkeypatch.setenv("TELNET_PASSWORD", "real-telnet-password")
+    monkeypatch.setenv("CMS_API_TOKEN", "real-cms-token")
+    monkeypatch.setenv("SMARTOLT_API_KEY", "real-smartolt-key")
+    from src.core.config import Settings
+    s = Settings()  # must not raise
+    assert s.is_production is True
+
+
+def test_development_allows_placeholders(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    from src.core.config import Settings
+    s = Settings()
+    assert s.SECRET_KEY.startswith("change-me")
