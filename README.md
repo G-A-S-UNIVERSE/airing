@@ -28,36 +28,32 @@ repository extends it with vendor-specific telemetry ingestion,
 Telegram alert dispatch, and SSH-based remediation.
 
 ```
-          ┌─────────────┐   ┌───────────────┐   ┌───────────┐   ┌──────────────┐
-          │  ZTE C320   │   │ Huawei MA5800 │   │  C-Data   │   │  FiberHome   │
-          └──────┬──────┘   └───────┬───────┘   └─────┬─────┘   └──────┬───────┘
-                 │                  │                 │                │
-   ┌─────────────┴──────────────────┴─────────────────┴────────────────┴────────────┐
-   │                            Adapter Layer                                      │
-   │                                                                               │
-   │  ZteC320Adapter        HuaweiMA5800Adapter       CDataAdapter   FhAdapter     │
-   │  (Telnet / CLI)        (NETCONF / SNMP)          (Telnet/CLI)   (Telnet/CLI)  │
-   └──────────────────────────────────┬────────────────────────────────────────────┘
-                                      │
-                                      │  typed dataclasses
-                                      │  OLTDevice / ONUDevice
-                                      ▼
-                    ┌────────────────────────────────────┐
-                    │           AiRing FastAPI           │
-                    │                                    │
-                    │   /api/v1/olts                     │
-                    │   /api/v1/onus                     │
-                    │   /api/v1/webhook/alert            │
-                    │   /health , /health/ready          │
-                    │   /metrics   (Prometheus text)     │
-                    └────────────────┬───────────────────┘
-                                     │
-                                     │  JSON over HTTP(S)
-                                     ▼
-                    ┌────────────────────────────────────┐
-                    │   Clients: NOC · bots · dashboards │
-                    │   Prometheus · Grafana · Zabbix    │
-                    └────────────────────────────────────┘
+flowchart TD
+    subgraph OLTs["OLT Hardware"]
+        ZTE["ZTE C320"]
+        HUAWEI["Huawei MA5800"]
+        CDATA["C-Data"]
+        FH["FiberHome"]
+    end
+
+    subgraph Adapters["Adapter Layer"]
+        ZTE_A["ZteC320Adapter<br/>(Telnet / CLI)"]
+        HUAWEI_A["HuaweiMA5800Adapter<br/>(NETCONF / SNMP)"]
+        CDATA_A["CDataAdapter<br/>(Telnet/CLI)"]
+        FH_A["FhAdapter<br/>(Telnet/CLI)"]
+    end
+
+    API["AiRing FastAPI<br/><br/>/api/v1/olts<br/>/api/v1/onus<br/>/api/v1/webhook/alert<br/>/health , /health/ready<br/>/metrics (Prometheus text)"]
+
+    CLIENTS["Clients: NOC · bots · dashboards<br/>Prometheus · Grafana · Zabbix"]
+
+    ZTE --> ZTE_A
+    HUAWEI --> HUAWEI_A
+    CDATA --> CDATA_A
+    FH --> FH_A
+
+    Adapters -->|"typed dataclasses<br/>OLTDevice / ONUDevice"| API
+    API -->|"JSON over HTTP(S)"| CLIENTS
 
 ```
 
