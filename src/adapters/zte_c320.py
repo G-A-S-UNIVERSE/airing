@@ -257,7 +257,14 @@ class ZteC320Adapter(BaseOLTAdapter):
 
         OID example: 1.3.6.1.4.1.3902.1082.501.10.2.1.1.6.<pon>.<onu>
         """
-        logger.info(
-            f"[zte_c320] (mock) reboot olt={olt_id} port={pon_port} onu={onu_index}"
+        if self.offline:
+            logger.warning(
+                f"[zte_c320] reboot_onu called in offline mode — NO-OP "
+                f"(olt={olt_id} port={pon_port} onu={onu_index}). "
+                f"Set offline=False to enable real reboot."
+            )
+            return False
+        # TODO: replace with pysnmp SET on onuAdminStatus (reboot(2))
+        raise NotImplementedError(
+            "reboot_onu requires pysnmp SET implementation; see docstring for OID."
         )
-        return True
