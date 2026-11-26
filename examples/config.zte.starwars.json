@@ -1,0 +1,29 @@
+{
+  "_note": "EXAMPLE ONLY — fictional credentials for ZTE C320 OLTs, Star Wars themed. Safe to commit. For real deployments, use .env with real values and never commit it.",
+  "olt_ips": {
+    "TATOOINE ZTE":  "10.42.0.11",
+    "CORUSCANT ZTE": "10.42.0.12",
+    "MANDALORE ZTE": "10.42.0.13",
+    "HOTH ZTE":      "10.42.0.14",
+    "ENDOR ZTE":     "10.42.0.15"
+  },
+  "credentials": {
+    "telnet": {
+      "username": "force_ghost",
+      "password": "may_the_force_be_with_you"
+    }
+  },
+  "olt_vlan_map": {
+    "TATOOINE ZTE":  600,
+    "CORUSCANT ZTE": 580,
+    "MANDALORE ZTE": 550,
+    "HOTH ZTE":      600,
+    "ENDOR ZTE":     620
+  },
+  "monitor_defaults": {
+    "pon_type": "gpon",
+    "board": 1,
+    "ports": [1, 2, 3, 4, 5, 6, 7, 8]
+  },
+  "save_file": "zte_monitor.json"
+}

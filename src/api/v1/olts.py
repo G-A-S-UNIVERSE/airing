@@ -1,21 +1,44 @@
 """
-AiRing - OLT Management Endpoints (public reference)
+AiRing - OLT Management Endpoints (adapter-backed)
 
-Public release uses in-memory mock data to demonstrate the API
-contract. Production deployments swap `_FAKE_OLTS` for a SQLAlchemy
-query via `Depends(get_db)` (see private repo for ORM models).
+Routes through the adapter layer. The ZTE adapter is still mock-data
+internally when `offline=True` (the default), so the response reflects
+mock hardware — but the wiring is the real pattern.
 """
 
 from __future__ import annotations
 
+from typing import Any, Dict, List, Optional
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from src.adapters import get_adapter
+from src.adapters.base import OLTDevice
+
 router = APIRouter()
 
 
+def _serialize(olt: OLTDevice) -> Dict[str, Any]:
+    return {
+        "id": olt.id,
+        "name": olt.name,
+        "ip_address": olt.ip_address,
+        "vendor": olt.vendor,
+        "model": olt.model,
+        "status": olt.status,
+        "uptime_seconds": olt.uptime_seconds,
+        "total_ports": olt.total_ports,
+        "online_ports": olt.online_ports,
+        "total_onus": olt.total_onus,
+        "online_onus": olt.online_onus,
+    }
+
+
+def _adapter():
+    """Factory indirection so tests can override the vendor choice."""
+    return get_adapter("zte_c320")
 _FAKE_OLTS: list[dict[str, Any]] = [
     {
         "id": str(uuid.uuid4()),
@@ -50,6 +73,13 @@ _FAKE_OLTS: list[dict[str, Any]] = [
 async def list_olts(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    vendor: Optional[str] = None,
+    status: Optional[str] = None,
+) -> Dict[str, Any]:
+    adapter = _adapter()
+    olts = await adapter.list_olts()
+
+    items: List[Dict[str, Any]] = [_serialize(o) for o in olts]
     vendor: str | None = None,
     status: str | None = None,
 ) -> dict[str, Any]:
@@ -59,6 +89,7 @@ async def list_olts(
         items = [o for o in items if o["vendor"] == vendor]
     if status:
         items = [o for o in items if o["status"] == status]
+
     total = len(items)
     page_items = items[skip : skip + limit]
     return {
@@ -70,15 +101,21 @@ async def list_olts(
 
 
 @router.get("/{olt_id}")
+async def get_olt(olt_id: str) -> Dict[str, Any]:
+    adapter = _adapter()
+    olt = await adapter.get_olt(olt_id)
 async def get_olt(olt_id: str) -> dict[str, Any]:
     """Get a single OLT by ID."""
     olt = next((o for o in _FAKE_OLTS if o["id"] == olt_id), None)
     if not olt:
         raise HTTPException(status_code=404, detail="OLT not found")
-    return olt
+    return _serialize(olt)
 
 
 @router.get("/{olt_id}/stats")
+async def get_olt_stats(olt_id: str) -> Dict[str, Any]:
+    adapter = _adapter()
+    olt = await adapter.get_olt(olt_id)
 async def get_olt_stats(olt_id: str) -> dict[str, Any]:
     """Get aggregated stats for an OLT (port + ONU health)."""
     olt = next((o for o in _FAKE_OLTS if o["id"] == olt_id), None)
@@ -86,10 +123,10 @@ async def get_olt_stats(olt_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="OLT not found")
     return {
         "olt_id": olt_id,
-        "status": olt["status"],
-        "total_ports": olt["total_ports"],
-        "online_ports": olt["online_ports"],
-        "total_onus": olt["total_onus"],
-        "online_onus": olt["online_onus"],
-        "offline_onus": olt["total_onus"] - olt["online_onus"],
+        "status": olt.status,
+        "total_ports": olt.total_ports,
+        "online_ports": olt.online_ports,
+        "total_onus": olt.total_onus,
+        "online_onus": olt.online_onus,
+        "offline_onus": olt.total_onus - olt.online_onus,
     }
