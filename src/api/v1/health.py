@@ -9,7 +9,7 @@ to monitoring systems without a separate readiness check.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -29,6 +29,8 @@ def _secret_key_status() -> str:
 async def health() -> Dict[str, Any]:
     """Liveness probe. Always 200 if process is up. Includes secret status."""
     s = get_settings()
+async def health() -> dict[str, Any]:
+    """Liveness probe. Always returns 200 if process is up."""
     return {
         "status": "ok",
         "app": s.APP_NAME,
@@ -40,11 +42,14 @@ async def health() -> Dict[str, Any]:
 
 
 @router.get("/ready")
-async def readiness() -> Dict[str, Any]:
+async def readiness() -> dict[str, Any]:
     """Readiness probe. Production: verify DB + Redis + adapters."""
-    checks: Dict[str, str] = {
+    checks: dict[str, str] = {
         "config": "ok",
         "secret_key_loaded": _secret_key_status(),
+        "secret_key_loaded": (
+            "ok" if settings.SECRET_KEY != "change-me-to-random-32-bytes" else "default"
+        ),
     }
     overall = "ok" if all(v != "fail" for v in checks.values()) else "degraded"
     return {

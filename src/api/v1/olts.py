@@ -9,6 +9,8 @@ mock hardware — but the wiring is the real pattern.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -37,6 +39,34 @@ def _serialize(olt: OLTDevice) -> Dict[str, Any]:
 def _adapter():
     """Factory indirection so tests can override the vendor choice."""
     return get_adapter("zte_c320")
+_FAKE_OLTS: list[dict[str, Any]] = [
+    {
+        "id": str(uuid.uuid4()),
+        "name": "OLT-C320-REGION1-01",
+        "ip_address": "10.0.0.1",
+        "vendor": "zte",
+        "model": "C320",
+        "status": "online",
+        "uptime_seconds": 864000,
+        "total_ports": 16,
+        "online_ports": 14,
+        "total_onus": 256,
+        "online_onus": 248,
+    },
+    {
+        "id": str(uuid.uuid4()),
+        "name": "OLT-MA5800-REGION2-01",
+        "ip_address": "10.0.0.2",
+        "vendor": "huawei",
+        "model": "MA5800-X7",
+        "status": "online",
+        "uptime_seconds": 1728000,
+        "total_ports": 8,
+        "online_ports": 8,
+        "total_onus": 512,
+        "online_onus": 502,
+    },
+]
 
 
 @router.get("")
@@ -50,6 +80,11 @@ async def list_olts(
     olts = await adapter.list_olts()
 
     items: List[Dict[str, Any]] = [_serialize(o) for o in olts]
+    vendor: str | None = None,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """List all OLTs (paginated, filterable)."""
+    items = _FAKE_OLTS
     if vendor:
         items = [o for o in items if o["vendor"] == vendor]
     if status:
@@ -69,6 +104,9 @@ async def list_olts(
 async def get_olt(olt_id: str) -> Dict[str, Any]:
     adapter = _adapter()
     olt = await adapter.get_olt(olt_id)
+async def get_olt(olt_id: str) -> dict[str, Any]:
+    """Get a single OLT by ID."""
+    olt = next((o for o in _FAKE_OLTS if o["id"] == olt_id), None)
     if not olt:
         raise HTTPException(status_code=404, detail="OLT not found")
     return _serialize(olt)
@@ -78,6 +116,9 @@ async def get_olt(olt_id: str) -> Dict[str, Any]:
 async def get_olt_stats(olt_id: str) -> Dict[str, Any]:
     adapter = _adapter()
     olt = await adapter.get_olt(olt_id)
+async def get_olt_stats(olt_id: str) -> dict[str, Any]:
+    """Get aggregated stats for an OLT (port + ONU health)."""
+    olt = next((o for o in _FAKE_OLTS if o["id"] == olt_id), None)
     if not olt:
         raise HTTPException(status_code=404, detail="OLT not found")
     return {

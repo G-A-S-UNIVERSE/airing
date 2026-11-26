@@ -59,6 +59,7 @@ def test_idempotency_guard_separate_keys() -> None:
 )
 def test_prompt_injection_guard_catches_known_patterns(injection: str) -> None:
     from fastapi import HTTPException
+
     with pytest.raises(HTTPException) as exc_info:
         PromptInjectionGuard.validate_payload({"narrative": injection})
     assert exc_info.value.status_code == 400
@@ -74,6 +75,7 @@ def test_prompt_injection_guard_passes_clean_payload() -> None:
 def test_prompt_injection_guard_walks_nested_dict() -> None:
     """Nested dict fields must also be scanned."""
     from fastapi import HTTPException
+
     payload = {
         "event": "alert",
         "details": {

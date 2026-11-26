@@ -1,1 +1,1 @@
-"""Core utilities: config, security, database, audit."""
+"""Core utilities: config, security."""

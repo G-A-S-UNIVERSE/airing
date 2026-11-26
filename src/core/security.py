@@ -8,17 +8,18 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import re
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import HTTPException, Request, status
 
 from src.core.config import settings
 
-
 # ============================================================
 # HMAC Webhook Signature Verification
 # ============================================================
+
 
 def sign_payload(body: bytes, secret: str | None = None) -> str:
     """Compute HMAC-SHA256 hex digest of payload."""
@@ -40,7 +41,7 @@ async def verify_webhook_signature(request: Request) -> bytes:
         )
 
     expected_prefix = "sha256="
-    provided_sig = signature_header[len(expected_prefix):]
+    provided_sig = signature_header[len(expected_prefix) :]
 
     body = await request.body()
     if not isinstance(body, bytes):
@@ -61,15 +62,17 @@ async def verify_webhook_signature(request: Request) -> bytes:
 # Idempotency Guard (in-memory, replace with Redis for production)
 # ============================================================
 
+
 class IdempotencyGuard:
     """Sliding-window deduplication. Replace with Redis SETEX for multi-instance."""
 
     def __init__(self, window_seconds: int = 300):
         self.window_seconds = window_seconds
-        self._seen: Dict[str, float] = {}
+        self._seen: dict[str, float] = {}
 
     def is_duplicate(self, key: str) -> bool:
         import time
+
         now = time.time()
         cutoff = now - self.window_seconds
         self._seen = {k: t for k, t in self._seen.items() if t >= cutoff}
@@ -98,7 +101,7 @@ class PromptInjectionGuard:
     """Detect and reject prompt-injection patterns in inbound payloads."""
 
     @staticmethod
-    def validate_payload(payload: Dict[str, Any]) -> None:
+    def validate_payload(payload: dict[str, Any]) -> None:
         """Walk all string fields; raise HTTPException(400) on match."""
         for key, value in payload.items():
             if isinstance(value, str):
@@ -122,16 +125,13 @@ class PromptInjectionGuard:
 
     @staticmethod
     def _scan_string(text: str) -> bool:
-        for pattern in INJECTION_PATTERNS:
-            if pattern.search(text):
-                return True
-        return False
+        return any(pattern.search(text) for pattern in INJECTION_PATTERNS)
 
 
 idempotency_guard = IdempotencyGuard()
 
 
-def get_dedup_key(payload: Dict[str, Any]) -> str:
+def get_dedup_key(payload: dict[str, Any]) -> str:
     """Compute a stable dedup key from alert payload (event_id fallback to hash)."""
     event_id = payload.get("event_id") or payload.get("eventid") or ""
     if event_id:
@@ -139,6 +139,3 @@ def get_dedup_key(payload: Dict[str, Any]) -> str:
     body = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
     return f"hash:{digest}"
-
-
-import json  # noqa: E402  (placed after function to keep top imports tidy)

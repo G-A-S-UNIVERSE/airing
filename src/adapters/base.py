@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -34,7 +34,7 @@ class OLTDevice:
     online_ports: int = 0
     total_onus: int = 0
     online_onus: int = 0
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -47,10 +47,10 @@ class ONUDevice:
     onu_index: int
     serial_number: str
     status: str = "unknown"
-    rx_power_dbm: Optional[float] = None
-    tx_power_dbm: Optional[float] = None
-    distance_m: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    rx_power_dbm: float | None = None
+    tx_power_dbm: float | None = None
+    distance_m: int | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseOLTAdapter(ABC):
@@ -63,26 +63,26 @@ class BaseOLTAdapter(ABC):
         self.config = config
 
     @abstractmethod
-    async def list_olts(self) -> List[OLTDevice]:
+    async def list_olts(self) -> list[OLTDevice]:
         """Return all OLTs this adapter can manage."""
 
     @abstractmethod
-    async def get_olt(self, olt_id: str) -> Optional[OLTDevice]:
+    async def get_olt(self, olt_id: str) -> OLTDevice | None:
         """Return a single OLT by its adapter-specific ID, or None."""
 
     @abstractmethod
-    async def list_onus(self, olt_id: str, pon_port: Optional[str] = None) -> List[ONUDevice]:
+    async def list_onus(self, olt_id: str, pon_port: str | None = None) -> list[ONUDevice]:
         """Return ONUs under an OLT, optionally filtered by PON port."""
 
     @abstractmethod
-    async def get_onu_signal(self, olt_id: str, serial: str) -> Optional[Dict[str, float]]:
+    async def get_onu_signal(self, olt_id: str, serial: str) -> dict[str, float] | None:
         """Return {'rx_power_dbm': float, 'tx_power_dbm': float} or None."""
 
     @abstractmethod
     async def reboot_onu(self, olt_id: str, pon_port: str, onu_index: int) -> bool:
         """Trigger an ONU reboot. Return True on success."""
 
-    async def healthcheck(self) -> Dict[str, Any]:
+    async def healthcheck(self) -> dict[str, Any]:
         """Default healthcheck: just confirm adapter loads."""
         return {
             "vendor": self.vendor_key,

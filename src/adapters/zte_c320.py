@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 
 import logging
-from typing import Any, Dict, List, Optional
 
 from src.adapters.base import BaseOLTAdapter, OLTDevice, ONUDevice
 from src.adapters._telnet import TelnetSession
@@ -87,7 +86,7 @@ class ZteC320Adapter(BaseOLTAdapter):
         self.username = username if username is not None else _settings.TELNET_USERNAME
         self.password = password if password is not None else _settings.TELNET_PASSWORD
 
-    async def list_olts(self) -> List[OLTDevice]:
+    async def list_olts(self) -> list[OLTDevice]:
         """Return ZTE C320 OLTs reachable via SNMP. Public: returns mock data."""
         return [
             OLTDevice(
@@ -102,11 +101,14 @@ class ZteC320Adapter(BaseOLTAdapter):
                 online_ports=14,
                 total_onus=256,
                 online_onus=248,
-                extra={"snmp_version": self.snmp_version, "community_hash_prefix": self.community[:2] + "***"},
+                extra={
+                    "snmp_version": self.snmp_version,
+                    "community_hash_prefix": self.community[:2] + "***",
+                },
             ),
         ]
 
-    async def get_olt(self, olt_id: str) -> Optional[OLTDevice]:
+    async def get_olt(self, olt_id: str) -> OLTDevice | None:
         for olt in await self.list_olts():
             if olt.id == olt_id:
                 return olt
@@ -251,6 +253,36 @@ class ZteC320Adapter(BaseOLTAdapter):
         if rx is None:
             return None
         return {"rx_power_dbm": rx, "tx_power_dbm": 2.1}
+    async def list_onus(self, olt_id: str, pon_port: str | None = None) -> list[ONUDevice]:
+        """Walk `ZTE-OLT-PON-MIB::onuTable` and decode entries."""
+        return [
+            ONUDevice(
+                id="zte-onu-1",
+                olt_id=olt_id,
+                pon_port=pon_port or "0/1/1",
+                onu_index=1,
+                serial_number="ZTEG-0000A1B2",
+                status="online",
+                rx_power_dbm=-22.5,
+                tx_power_dbm=2.1,
+                distance_m=850,
+            ),
+            ONUDevice(
+                id="zte-onu-2",
+                olt_id=olt_id,
+                pon_port=pon_port or "0/1/1",
+                onu_index=2,
+                serial_number="ZTEG-0000A1B3",
+                status="offline",
+                rx_power_dbm=None,
+                tx_power_dbm=None,
+                distance_m=None,
+            ),
+        ]
+
+    async def get_onu_signal(self, olt_id: str, serial: str) -> dict[str, float] | None:
+        """SNMP GET on `onuRxOpticalPower` and `onuTxOpticalPower`."""
+        return {"rx_power_dbm": -22.5, "tx_power_dbm": 2.1}
 
     async def reboot_onu(self, olt_id: str, pon_port: str, onu_index: int) -> bool:
         """SNMP SET on `onuAdminStatus` to `reboot(2)`.
@@ -268,3 +300,5 @@ class ZteC320Adapter(BaseOLTAdapter):
         raise NotImplementedError(
             "reboot_onu requires pysnmp SET implementation; see docstring for OID."
         )
+        logger.info(f"[zte_c320] (mock) reboot olt={olt_id} port={pon_port} onu={onu_index}")
+        return True

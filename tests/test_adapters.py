@@ -7,16 +7,15 @@ import pytest
 from src.adapters import (
     ADAPTER_REGISTRY,
     BaseOLTAdapter,
+    GenericCLIAdapter,
     OLTDevice,
-    ONUDevice,
-    PatihAdapter,
     ZteC320Adapter,
     get_adapter,
 )
 
 
 def test_registry_contains_expected_vendors() -> None:
-    assert "patih" in ADAPTER_REGISTRY
+    assert "generic_cli" in ADAPTER_REGISTRY
     assert "zte_c320" in ADAPTER_REGISTRY
 
 
@@ -33,8 +32,8 @@ def test_factory_returns_subclass_of_base() -> None:
 
 
 @pytest.mark.asyncio
-async def test_patih_returns_at_least_one_olt() -> None:
-    adapter = PatihAdapter()
+async def test_generic_cli_returns_at_least_one_olt() -> None:
+    adapter = GenericCLIAdapter()
     olts = await adapter.list_olts()
     assert len(olts) >= 1
     assert all(isinstance(o, OLTDevice) for o in olts)
@@ -53,8 +52,8 @@ async def test_zte_c320_list_olts_includes_community_hash_prefix() -> None:
 
 
 @pytest.mark.asyncio
-async def test_patih_signal_returns_dict() -> None:
-    adapter = PatihAdapter()
+async def test_generic_cli_signal_returns_dict() -> None:
+    adapter = GenericCLIAdapter()
     signal = await adapter.get_onu_signal("olt-1", "ZTEG-0000A1B2")
     assert signal is not None
     assert "rx_power_dbm" in signal
@@ -72,7 +71,7 @@ async def test_reboot_returns_bool() -> None:
 
 @pytest.mark.asyncio
 async def test_healthcheck_default() -> None:
-    adapter = get_adapter("patih")
+    adapter = get_adapter("generic_cli")
     health = await adapter.healthcheck()
-    assert health["vendor"] == "patih"
+    assert health["vendor"] == "generic_cli"
     assert health["status"] == "loaded"

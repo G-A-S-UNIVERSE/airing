@@ -11,7 +11,7 @@ that lets new vendors be added without touching core code.
 ```
                   ┌─────────────────────────────────────────────┐
                   │                  Clients                    │
-                  │  NOC Dashboard · Telegram Bot · Webhooks    │
+                  │  NOC Dashboard · Alert Bot · Webhooks       │
                   └──────────────────────┬──────────────────────┘
                                          │ HTTPS / HMAC-signed
                                          ▼
@@ -28,16 +28,16 @@ that lets new vendors be added without touching core code.
         │   ┌──────────────────┐   ┌────────────────────┐           │
         │   │  Adapter Layer   │   │  Security Chain    │           │
         │   │  (BaseOLTAdapter)│   │  • HMAC verify     │           │
-        │   │  ├ PatihAdapter  │   │  • Injection guard │           │
+        │   │  ├ generic_cli   │   │  • Injection guard │           │
         │   │  ├ ZteC320Adapter│   │  • Idempotency     │           │
-        │   │  └ ... (vendor)  │   │  • Audit log       │           │
+        │   │  └ ... (vendor)  │   │                    │           │
         │   └────────┬─────────┘   └────────────────────┘           │
         │            │                                                │
         │            ▼                                                │
         │   ┌──────────────────┐                                       │
         │   │  Core Services   │                                       │
-        │   │  Config · Auth   │                                       │
-        │   │  Metrics · DB    │                                       │
+        │   │  Config · Env    │                                       │
+        │   │  Security · HMAC │                                       │
         │   └──────────────────┘                                       │
         └─────────────┬──────────────────────────────────────────────┘
                       │
@@ -57,7 +57,7 @@ that lets new vendors be added without touching core code.
 | **Edge / API** | HTTP routing, request validation, response shaping | `src/main.py`, `src/api/v1/*.py` |
 | **Security** | HMAC verification, prompt-injection guard, idempotency | `src/core/security.py` |
 | **Adapter** | Vendor-specific protocol translation, OLT/ONU access | `src/adapters/*.py` |
-| **Core** | Configuration, observability, lifecycle | `src/core/config.py`, `src/core/*.py` |
+| **Core** | Environment-driven configuration, security primitives | `src/core/config.py`, `src/core/security.py` |
 | **Persistence** | (Production) Postgres / Redis via SQLAlchemy | `requirements.txt` (prod extras) |
 
 ## Why an Adapter Pattern?
@@ -71,8 +71,8 @@ async interface (`list_olts`, `list_onus`, `reboot_onu`, …).
 
 ```python
 # Every adapter exposes the same surface
-async def list_olts(self) -> List[OLTDevice]: ...
-async def get_onu_signal(self, olt_id: str, serial: str) -> Optional[Dict[str, float]]: ...
+async def list_olts(self) -> list[OLTDevice]: ...
+async def get_onu_signal(self, olt_id: str, serial: str) -> dict[str, float] | None: ...
 async def reboot_onu(self, olt_id: str, pon_port: str, onu_index: int) -> bool: ...
 ```
 
@@ -112,7 +112,7 @@ See `tests/test_security.py` for the full coverage matrix.
 | **Local dev** | Single laptop, SQLite | `uvicorn src.main:app --reload` |
 | **Container (full)** | Local multi-service test | `docker compose up` (api + db + redis) |
 | **Container + proxy** | Local HTTPS test | `docker compose --profile with-proxy up` |
-| **Bare-metal / VM** | Production (LXC, K8s node) | `docker compose` or systemd unit |
+| **Bare-metal / VM** | Production (container / K8s node) | `docker compose` or systemd unit |
 
 Production deployments add:
 - Prometheus scraper → `/metrics`

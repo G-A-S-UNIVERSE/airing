@@ -3,8 +3,8 @@ AiRing - FastAPI Application Entry Point (public reference release)
 
 This is the sanitized, portfolio-grade entry point. The production
 deployment in the author's private repository extends this with
-vendor-specific adapters (ZTE, Huawei, C-DATA, FiberHome), Telegram
-alert dispatch, and Zabbix webhook ingestion.
+vendor-specific adapters (ZTE, Huawei, C-DATA, FiberHome),
+extended telemetry ingestion, and SSH-based remediation.
 
 Public release demonstrates:
   - Clean pydantic-settings configuration (no hardcoded secrets)
@@ -18,24 +18,25 @@ Public release demonstrates:
 
 from __future__ import annotations
 
+import json
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from src.api.v1 import health, olts, onus
 from src.core.config import settings
 from src.core.security import (
-    verify_webhook_signature,
-    idempotency_guard,
     PromptInjectionGuard,
     get_dedup_key,
+    idempotency_guard,
+    verify_webhook_signature,
 )
-import json
 
 
 @asynccontextmanager
@@ -85,12 +86,13 @@ async def root() -> dict:
 # Reference webhook endpoint (HMAC + injection-guard + idempotency)
 # ============================================================
 
+
 @app.post("/api/v1/webhook/alert")
 async def ingest_alert(request: Request) -> dict:
     """Reference webhook handler showing the security chain.
 
     Production deployments add downstream side-effects (DB persist,
-    Telegram dispatch, SSH remediation). This public version only
+    alert dispatch, SSH remediation). This public version only
     echoes the validated payload.
     """
     body = await verify_webhook_signature(request)
@@ -149,4 +151,5 @@ async def metrics() -> str:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)
