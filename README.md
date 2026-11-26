@@ -27,7 +27,7 @@ pipeline. The production deployment in the author's private
 repository extends it with vendor-specific telemetry ingestion,
 Telegram alert dispatch, and SSH-based remediation.
 
-
+```mermaid
 flowchart TD
     subgraph OLTs["OLT Hardware"]
         ZTE["ZTE C320"]
@@ -55,7 +55,7 @@ flowchart TD
     Adapters -->|"typed dataclasses<br/>OLTDevice / ONUDevice"| API
     API -->|"JSON over HTTP(S)"| CLIENTS
 
-
+```
 
 ## Why?
 
