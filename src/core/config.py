@@ -9,9 +9,7 @@ Copy `.env.example` to `.env` and fill in your own values.
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
-from typing import List
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -47,11 +45,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = Field(default="HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
 
-    PATIH_MQTT_HOST: str = Field(default="localhost")
-    PATIH_MQTT_PORT: int = Field(default=1883)
-    PATIH_CLI_API: str = Field(
+    GENERIC_CLI_MQTT_HOST: str = Field(default="localhost")
+    GENERIC_CLI_MQTT_PORT: int = Field(default=1883)
+    GENERIC_CLI_API: str = Field(
         default="http://localhost:8080/execute",
-        description="PATIH OLT Manager CLI endpoint (set to your deployment)",
+        description="Generic CLI OLT manager endpoint (set to your deployment)",
     )
 
     CMS_API_HOST: str = Field(default="localhost")
@@ -75,7 +73,7 @@ class Settings(BaseSettings):
     )
 
     @property
-    def parsed_cors_origins(self) -> List[str]:
+    def parsed_cors_origins(self) -> list[str]:
         if not self.CORS_ORIGINS:
             return ["http://localhost:3000", "http://localhost:8000"]
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]

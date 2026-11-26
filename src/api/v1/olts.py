@@ -9,17 +9,17 @@ query via `Depends(get_db)` (see private repo for ORM models).
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter()
 
 
-_FAKE_OLTS: List[Dict[str, Any]] = [
+_FAKE_OLTS: list[dict[str, Any]] = [
     {
         "id": str(uuid.uuid4()),
-        "name": "OLT-C320-PAPUA-01",
+        "name": "OLT-C320-REGION1-01",
         "ip_address": "10.0.0.1",
         "vendor": "zte",
         "model": "C320",
@@ -32,7 +32,7 @@ _FAKE_OLTS: List[Dict[str, Any]] = [
     },
     {
         "id": str(uuid.uuid4()),
-        "name": "OLT-MA5800-JKT-02",
+        "name": "OLT-MA5800-REGION2-01",
         "ip_address": "10.0.0.2",
         "vendor": "huawei",
         "model": "MA5800-X7",
@@ -50,9 +50,9 @@ _FAKE_OLTS: List[Dict[str, Any]] = [
 async def list_olts(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    vendor: Optional[str] = None,
-    status: Optional[str] = None,
-) -> Dict[str, Any]:
+    vendor: str | None = None,
+    status: str | None = None,
+) -> dict[str, Any]:
     """List all OLTs (paginated, filterable)."""
     items = _FAKE_OLTS
     if vendor:
@@ -70,7 +70,7 @@ async def list_olts(
 
 
 @router.get("/{olt_id}")
-async def get_olt(olt_id: str) -> Dict[str, Any]:
+async def get_olt(olt_id: str) -> dict[str, Any]:
     """Get a single OLT by ID."""
     olt = next((o for o in _FAKE_OLTS if o["id"] == olt_id), None)
     if not olt:
@@ -79,7 +79,7 @@ async def get_olt(olt_id: str) -> Dict[str, Any]:
 
 
 @router.get("/{olt_id}/stats")
-async def get_olt_stats(olt_id: str) -> Dict[str, Any]:
+async def get_olt_stats(olt_id: str) -> dict[str, Any]:
     """Get aggregated stats for an OLT (port + ONU health)."""
     olt = next((o for o in _FAKE_OLTS if o["id"] == olt_id), None)
     if not olt:

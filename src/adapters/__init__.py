@@ -1,4 +1,4 @@
-"""OLT vendor adapters (patih, zte_c320, huawei_ma5800, ...).
+"""OLT vendor adapters (generic_cli, zte_c320, huawei_ma5800, ...).
 
 All adapters implement the `BaseOLTAdapter` interface. To add a new
 vendor, subclass `BaseOLTAdapter` and register it in `ADAPTER_REGISTRY`.
@@ -6,14 +6,14 @@ See docs/ADAPTER_DEVELOPMENT.md for the full guide.
 """
 
 from src.adapters.base import BaseOLTAdapter, OLTDevice, ONUDevice
-from src.adapters.patih_adapter import PatihAdapter
+from src.adapters.generic_cli_adapter import GenericCLIAdapter
 from src.adapters.zte_c320 import ZteC320Adapter
 
 __all__ = [
     "BaseOLTAdapter",
     "OLTDevice",
     "ONUDevice",
-    "PatihAdapter",
+    "GenericCLIAdapter",
     "ZteC320Adapter",
     "ADAPTER_REGISTRY",
     "get_adapter",
@@ -21,7 +21,7 @@ __all__ = [
 
 
 ADAPTER_REGISTRY: dict[str, type[BaseOLTAdapter]] = {
-    "patih": PatihAdapter,
+    "generic_cli": GenericCLIAdapter,
     "zte_c320": ZteC320Adapter,
 }
 
@@ -31,7 +31,6 @@ def get_adapter(vendor: str) -> BaseOLTAdapter:
     cls = ADAPTER_REGISTRY.get(vendor.lower())
     if not cls:
         raise ValueError(
-            f"Unknown OLT vendor '{vendor}'. "
-            f"Available: {sorted(ADAPTER_REGISTRY.keys())}"
+            f"Unknown OLT vendor '{vendor}'. " f"Available: {sorted(ADAPTER_REGISTRY.keys())}"
         )
     return cls()

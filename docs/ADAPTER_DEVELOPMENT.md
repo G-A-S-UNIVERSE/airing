@@ -23,7 +23,7 @@ neutral data model.
 ```python
 # src/adapters/nokia_7360.py
 from src.adapters.base import BaseOLTAdapter, OLTDevice, ONUDevice
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 class Nokia7360Adapter(BaseOLTAdapter):
     vendor_key = "nokia_7360"
@@ -39,10 +39,10 @@ class Nokia7360Adapter(BaseOLTAdapter):
 
 | Method | Returns | Notes |
 |--------|---------|-------|
-| `list_olts()` | `List[OLTDevice]` | One entry per chassis this adapter manages. |
-| `get_olt(olt_id)` | `Optional[OLTDevice]` | Lookup; `None` if not found. |
-| `list_onus(olt_id, pon_port=None)` | `List[ONUDevice]` | Optional PON port filter. |
-| `get_onu_signal(olt_id, serial)` | `Optional[Dict[str, float]]` | `{rx_power_dbm, tx_power_dbm}`. |
+| `list_olts()` | `list[OLTDevice]` | One entry per chassis this adapter manages. |
+| `get_olt(olt_id)` | `OLTDevice | None` | Lookup; `None` if not found. |
+| `list_onus(olt_id, pon_port=None)` | `list[ONUDevice]` | Optional PON port filter. |
+| `get_onu_signal(olt_id, serial)` | `dict[str, float] | None` | `{rx_power_dbm, tx_power_dbm}`. |
 | `reboot_onu(olt_id, pon_port, onu_index)` | `bool` | True on success. |
 
 Override `healthcheck()` only if you need a deeper probe (e.g. SNMP
@@ -146,5 +146,5 @@ NOKIA_7360_SNMP_VERSION=2c
 | FiberHome AN5516 | SNMPv2c + TELNET | `pysnmp` + `paramiko` | FH-OLT-PON-MIB |
 | Nokia 7360 ISAM | SNMPv2c + TL1 | `pysnmp` + custom TL1 | ISAM-MIB |
 
-The public reference includes `PatihAdapter` (HTTP CLI bridge) and
+The public reference includes `GenericCLIAdapter` (HTTP CLI bridge) and
 `ZteC320Adapter` (SNMP) as worked examples.

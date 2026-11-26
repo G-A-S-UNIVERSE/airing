@@ -24,14 +24,14 @@ extensibility.
 The public release is a **sanitized reference implementation** — the
 adapter pattern, security chain, configuration model, and CI
 pipeline. The production deployment in the author's private
-repository extends it with vendor-specific telemetry ingestion,
-Telegram alert dispatch, and SSH-based remediation.
+repository extends it with vendor-specific telemetry ingestion and
+SSH-based remediation.
 
 ```
             ZTE C300/C320    Huawei MA5800    C-DATA    FiberHome
                   │                │             │           │
             ┌─────┴────────────────┴─────────────┴───────────┴─────┐
-            │              Adapter Layer (ZteC320, Patih, …)       │
+            │              Adapter Layer (ZteC320, generic_cli, …) │
             └────────────────────────┬──────────────────────────────┘
                                      │
                           ┌──────────▼──────────┐
@@ -55,14 +55,14 @@ Three problems AiRing solves:
    protocol (SNMPv2c, NETCONF, REST, proprietary CLI). Operators end
    up writing glue code per vendor. AiRing collapses that to one
    interface.
-2. **Insecure webhook ingress.** Monitoring systems (Zabbix, LibreNMS,
-   Observium) push alerts to arbitrary endpoints. Without HMAC
-   verification and injection guards, an attacker who knows the
-   URL can poison the alert pipeline. AiRing ships a hardened
-   chain out of the box.
+2. **Insecure webhook ingress.** Monitoring and NMS systems push
+   alerts to arbitrary endpoints. Without HMAC verification and
+   injection guards, an attacker who knows the URL can poison the
+   alert pipeline. AiRing ships a hardened chain out of the box.
 3. **Auditability.** Network changes need to be attributable and
-   reversible. AiRing treats every action as a proposal that must
-   be approved before execution, with hash-chained audit logs.
+   reversible. The reference release verifies every inbound action
+   before it is applied; audit-log persistence is left to the
+   deployment.
 
 ## Features
 
@@ -84,7 +84,7 @@ Three problems AiRing solves:
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-username/airing.git
+git clone https://github.com/G-A-S-UNIVERSE/airing.git
 cd airing
 
 # 2. Configure
@@ -142,7 +142,7 @@ Key principles:
 See [`docs/ADAPTER_DEVELOPMENT.md`](docs/ADAPTER_DEVELOPMENT.md) —
 it's a 6-step recipe (subclass, implement 5 methods, register,
 configure, test, document). Reference implementations in this repo:
-`PatihAdapter` (HTTP CLI bridge) and `ZteC320Adapter` (SNMP).
+`GenericCLIAdapter` (HTTP CLI bridge) and `ZteC320Adapter` (SNMP).
 
 ```python
 # 30-second example
@@ -190,8 +190,8 @@ airing/
 ├── src/
 │   ├── main.py              # FastAPI entry
 │   ├── api/v1/              # HTTP routers (olts, onus, health)
-│   ├── adapters/            # Vendor OLT adapters (base, patih, zte_c320)
-│   └── core/                # Config, security, audit
+│   ├── adapters/            # Vendor OLT adapters (base, generic_cli, zte_c320)
+│   └── core/                # Config, security
 ├── tests/                   # pytest suite (health, security, adapters, config)
 ├── docker/                  # Dockerfile, compose, Caddyfile
 ├── docs/
@@ -212,6 +212,6 @@ airing/
 ## Author Note
 
 This repo is a portfolio piece. The full production system — with
-live vendor adapters, Telegram bot, Zabbix/LibreNMS scrapers, and
+live vendor adapters, extended telemetry ingestion, and
 SSH remediation — lives in a private repository. Reach out if
 you're interested in discussing the production architecture.

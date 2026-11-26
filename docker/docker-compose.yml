@@ -16,7 +16,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://airing:airing@airing-db:5432/airing}
       - REDIS_URL=${REDIS_URL:-redis://airing-redis:6379/0}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
-      - PATIH_CLI_API=${PATIH_CLI_API}
+      - GENERIC_CLI_API=${GENERIC_CLI_API}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       airing-db:
